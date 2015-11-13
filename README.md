@@ -1,4 +1,5 @@
-char = game.Players.LocalPlayer.Character
+plr = game.Players.LocalPlayer
+char = plr.Character
 local larm = char["Left Arm"]
 local rarm = char["Right Arm"]
 local lleg = char["Left Leg"]
@@ -188,3 +189,164 @@ gm = char:FindFirstChild('GoldenSatyrHawk')
 gm.Handle.Mesh.Scale = Vector3.new(2,2,2)
 gm.AttachmentPos = Vector3.new(0, -1, -0.5)
 ---------------------------------------------------
+
+plyr = plr
+mouse = plyr:GetMouse()
+
+
+NewRS = nil
+boost = nil
+gyro = nil
+isfloating = false
+charging = false
+maxfuel = 10000000
+fuel = maxfuel
+charge_int = .5
+maxTrq = Vector3.new(7000, .01, 7000)
+origPow = Instance.new("BodyGyro").P
+speed = 0
+maxspd = 1000
+
+function startfloat()
+
+	if gyro then
+		gyro:Destroy()
+	end
+	
+	char = plyr.Character
+	ra = char:FindFirstChild("Right Arm")
+	la = char:FindFirstChild("Left Arm")
+	torso = char.Torso
+	char.Humanoid.PlatformStand = true
+	
+
+	
+	boost = Instance.new("BodyVelocity", torso)
+	boost.velocity = Vector3.new(0, 20, 0)
+	boost.maxForce = Vector3.new(5500, 70000--[[6000]], 5500)
+	
+	gyro = Instance.new("BodyGyro", torso)
+	gyro.cframe = torso.CFrame * CFrame.Angles(math.rad(-3), 0, 0)
+	gyro.maxTorque = maxTrq
+	
+	isfloating = true
+	--ns = torso.Neck
+end
+
+function floatforward()
+	while gyro.Parent ~= nil and boost.Parent ~= nil do
+		gyro.cframe = gyro.cframe 
+	end
+end
+
+function float()
+	speed = 0
+	repeat
+		if keylist['w'] then
+		    gyro.maxTorque = maxTrq
+		    gyro.P = origPow
+			
+			gyro.cframe = CFrame.new(torso.Position, mouse.Hit.p) * CFrame.Angles(math.rad(-90), 0, 0)
+			
+			if speed < maxspd then speed = speed + 1 end
+			boost.velocity = CFrame.new(torso.Position, mouse.Hit.p).lookVector * speed
+
+		else
+		    if speed > 0 then speed = speed - 3 end
+		    
+            gyro.maxTorque = Vector3.new(maxTrq.x, 0, 0)
+            gyro.P = origPow
+            
+			gyro.cframe = CFrame.new(torso.Position) * CFrame.Angles(math.rad(-3), 0, 0)
+			boost.velocity = Vector3.new(0, 2, 0)
+		end
+		wait()
+		fuel = fuel - .5
+	until fuel <= -1 or not keylist["g"]
+end
+
+function stopfloat()
+	
+	--torso.Neck.C0 = CFrame.new(0, 1, 0, -1, -0, -0, 0, 0, 1, 0, 1, 0)
+	
+	char.Humanoid.PlatformStand = false
+	
+	if boost then
+		boost:Destroy()
+	end
+	if gyro then
+		gyro:Destroy()
+	end
+	
+	isfloating = false
+end
+
+
+function Recharge()
+	coroutine.resume(coroutine.create(function()
+		charging = true
+		char = plyr.Character
+		lab:TweenSizeAndPosition(UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), "Out", "Linear", .7, true)
+		local con = char.Humanoid.Running:connect(function(spd)
+			if spd > 0 then
+				lab:TweenSizeAndPosition(UDim2.new(0, 0, 0, 0), UDim2.new(.5, 0, .5, 0), "Out", "Linear", .7, true)
+			end
+			wait()
+			if spd <= 0 then
+				lab:TweenSizeAndPosition(UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), "Out", "Linear", .7, true)
+			end
+		end)
+		repeat
+			fuel = fuel + charge_int
+			lab.Text = math.floor(100*(fuel/maxfuel)).."%"
+			wait()
+		until fuel >= maxfuel or isfloating
+		lab:TweenSizeAndPosition(UDim2.new(0, 0, 0, 0), UDim2.new(.5, 0, .5, 0), "Out", "Linear", .7, true)
+		con:disconnect()
+		charging = false
+	end))
+end
+
+function RunThru()
+    --plyr.Character.Humanoid.Jump = true
+	pcall(function() startfloat() end)
+	
+	float()
+	
+	stopfloat()
+
+	if not charging then Recharge() end
+end
+
+
+keylist = {}
+mouse.KeyDown:connect(function(key)
+	keylist[key] = true
+	
+	if key == "g" then
+		RunThru()
+	elseif key == "w" then
+	end
+		
+end)
+
+mouse.KeyUp:connect(function(key)
+	keylist[key] = nil
+end)
+
+
+debounce = false
+plyr.Character.Head.Touched:connect(function(hit)
+    if hit.Parent:FindFirstChild("Humanoid") and speed >= maxspd and not debounce then
+        debounce = true
+        guy = hit.Parent
+        guy.Humanoid.PlatformStand = true
+        local bf = Instance.new("BodyForce", guy.Torso)
+        bf.force = CFrame.new(plyr.Character.Head.Position, hit.Parent.Torso.Position).lookVector * 500
+        wait(.5)
+        bf:Destroy()
+        guy.Humanoid.PlatformStand = false
+        wait(.5)
+        debounce = false
+    end
+end)
